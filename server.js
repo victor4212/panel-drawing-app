@@ -20,6 +20,26 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
+async function ensureSchema() {
+  await pool.query(`
+    create table if not exists panel_drawings (
+      id bigserial primary key,
+      part_number text not null unique,
+      notes text default '',
+      state_json jsonb not null,
+      updated_at timestamptz not null default now()
+    );
+    create index if not exists idx_panel_drawings_part
+      on panel_drawings(part_number);
+  `);
+  console.log("DB schema ready");
+}
+
+// run once at startup
+ensureSchema().catch(err => {
+  console.error("Schema init failed:", err);
+  process.exit(1);
+});
 
 // ----- API -----
 app.get("/api/health", (_, res) => res.json({ ok: true }));
@@ -97,3 +117,4 @@ app.use(express.static("public"));
 // Render provides PORT
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server listening on", PORT));
+
